@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChronoFlow OS | Ultimate Productivity</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        :root {
+            --bg-deep: #0f172a;
+            --bg-surface: #1e293b;
+            --bg-light: #334155;
+            --accent: #0ea5e9;
+            --accent-glow: rgba(14, 165, 233, 0.3);
+            --success: #22c55e;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --text-main: #f1f5f9;
+            --text-dim: #94a3b8;
+            --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', system-ui, sans-serif; }
+
+        body {
+            background-color: var(--bg-deep);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* --- SIDEBAR --- */
+        aside {
+            width: 280px;
+            background: var(--bg-surface);
+            border-right: 1px solid rgba(255,255,255,0.05);
+            display: flex;
+            flex-direction: column;
+            padding: 1.5rem;
+            z-index: 10;
+        }
+
+        .logo {
+            font-size: 1.6rem;
+            font-weight: 800;
+            background: linear-gradient(to right, var(--accent), #6366f1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 2.5rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .nav-item {
+            padding: 12px 16px;
+            margin-bottom: 5px;
+            border-radius: 12px;
+            cursor: pointer;
+            color: var(--text-dim);
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: var(--transition);
+        }
+
+        .nav-item:hover, .nav-item.active {
+            background: var(--bg-light);
+            color: var(--accent);
+            transform: translateX(5px);
+        }
+
+        /* --- MAIN AREA --- */
+        main {
+            flex: 1;
+            overflow-y: auto;
+            padding: 2rem;
+            position: relative;
+        }
+
+        .view { display: none; animation: fadeUp 0.4s ease; }
+        .view.active { display: block; }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background: var(--bg-surface);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        /* --- COMPONENTS --- */
+        .btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-primary { background: var(--accent); color: white; }
+        .btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
+        .btn-danger { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+        .btn-danger:hover { background: var(--danger); color: white; }
+        .btn-icon { padding: 8px; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; }
+
+        input, select, textarea {
+            background: var(--bg-deep);
+            border: 1px solid var(--bg-light);
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            outline: none;
+            width: 100%;
+        }
+        input:focus, textarea:focus { border-color: var(--accent); }
+
+        /* --- HABIT TRACKER SPECIFIC --- */
+        .habit-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .habit-row {
+            display: grid;
+            grid-template-columns: 2fr 3fr 1fr 50px;
+            align-items: center;
+            background: var(--bg-light);
+            padding: 12px;
+            border-radius: 12px;
+            border-left: 4px solid var(--accent);
+        }
+        .habit-days {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+        }
+        .day-circle {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: var(--bg-deep);
+            color: var(--text-dim);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            cursor: pointer;
+            border: 1px solid rgba(255,255,255,0.05);
+            transition: var(--transition);
+        }
+        .day-circle.active {
+            background: var(--success);
+            color: white;
+            border-color: var(--success);
+            box-shadow: 0 0 10px rgba(34, 197, 94, 0.4);
+        }
+        .habit-streak {
+            text-align: center;
+            font-weight: bold;
+            color: var(--warning);
+        }
+
+        /* --- TIMER --- */
+        .timer-circle {
+            width: 250px;
+            height: 250px;
+            border-radius: 50%;
+            background: radial-gradient(circle, var(--bg-light) 0%, var(--bg-surface) 70%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 2rem;
+            border: 4px solid var(--bg-light);
+            box-shadow: 0 0 30px rgba(0,0,0,0.3);
+        }
+        .time-text { font-size: 4rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+        /* --- WATER TRACKER --- */
+        .water-container { display: flex; gap: 10px; justify-content: center; margin-top: 1rem; }
+        .water-glass { 
+            font-size: 1.5rem; cursor: pointer; opacity: 0.3; transition: var(--transition); 
+        }
+        .water-glass.filled { opacity: 1; transform: scale(1.1); filter: drop-shadow(0 0 5px var(--accent)); }
+
+        /* --- BREATHING CIRCLE (NEW) --- */
+        .breathe-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 400px;
+            position: relative;
+        }
+        .breathe-circle {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            background: var(--accent);
+            opacity: 0.8;
+            box-shadow: 0 0 40px var(--accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1.5rem;
+            transform: scale(1);
+        }
+        .breathe-active {
+            animation: breatheAnim 8s infinite ease-in-out;
+        }
+        @keyframes breatheAnim {
+            0%, 100% { transform: scale(1); opacity: 0.5; } /* Exhale */
+            50% { transform: scale(2); opacity: 1; } /* Inhale */
+        }
+
+        /* --- NOTIFICATION --- */
+        #notification {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: var(--accent);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            transform: translateY(150%);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body>
+
+    <aside>
+        <div class="logo">
+            <span>⚡</span> ChronoFlow
+        </div>
+        <nav>
+            <div class="nav-item active" onclick="nav('dashboard')">📊 Dashboard</div>
+            <div class="nav-item" onclick="nav('habits')">🔥 Habit Tracker</div>
+            <div class="nav-item" onclick="nav('focus')">⏱️ Focus Timer</div>
+            <div class="nav-item" onclick="nav('tasks')">✅ Task Manager</div>
+            <div class="nav-item" onclick="nav('analytics')">📈 Analytics</div>
+            <div class="nav-item" onclick="nav('breathe')">🧘 Breathe Mode</div>
+            <div class="nav-item" onclick="nav('journal')">📓 Daily Journal</div>
+            <div class="nav-item" onclick="nav('settings')">⚙️ Settings</div>
+        </nav>
+        
+        <div style="margin-top: auto;">
+            <div class="card" style="padding: 1rem; border: 1px solid var(--accent);">
+                <small style="color:var(--accent); font-weight:bold;">DAILY TIP</small>
+                <p style="font-size: 0.85rem; margin-top: 5px; color: var(--text-dim);" id="daily-tip">
+                    "Eat the frog: Do your hardest task first."
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    <main>
+        <div id="notification">Action Saved!</div>
+
+        <!-- DASHBOARD VIEW -->
+        <section id="dashboard" class="view active">
+            <div class="header">
+                <div>
+                    <h1 id="greeting">Welcome Back</h1>
+                    <p style="color: var(--text-dim);" id="current-date">Today is...</p>
+                </div>
+                <div style="text-align: right;">
+                    <h2 style="font-family: monospace; color: var(--accent);" id="clock">00:00</h2>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem;">
+                <div class="card">
+                    <h3>💧 Hydration</h3>
+                    <div class="water-container" id="water-tracker">
+                        <!-- Generated by JS -->
+                    </div>
+                    <p style="text-align: center; margin-top: 10px; font-size: 0.9rem; color: var(--text-dim);">Target: 8 Cups</p>
+                </div>
+                
+                <div class="card">
+                    <h3>🎯 Productivity Score</h3>
+                    <div style="display: flex; align-items: flex-end; gap: 10px;">
+                        <span style="font-size: 3rem; font-weight: 800; color: var(--success);" id="score-display">0</span>
+                        <span style="padding-bottom: 10px; color: var(--text-dim);">pts today</span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>📝 Quick Scratchpad</h3>
+                    <textarea id="scratchpad" style="width: 100%; height: 80px; background: transparent; border: none; color: white; resize: none;" placeholder="Type notes here..."></textarea>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>📅 Today's Focus</h3>
+                <div id="dashboard-tasks" style="margin-top: 1rem;">
+                    <!-- Top 3 tasks go here -->
+                </div>
+            </div>
+        </section>
+
+        <!-- HABIT TRACKER VIEW -->
+        <section id="habits" class="view">
+            <div class="header">
+                <h1>Habit Tracker</h1>
+            </div>
+            
+            <div class="card">
+                <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                    <input type="text" id="new-habit-input" placeholder="Enter new habit (e.g. Read 10 pages)" style="flex: 1;">
+                    <button class="btn btn-primary" onclick="addHabit()">+ Add Habit</button>
+                </div>
+
+                <div class="habit-grid" id="habit-list">
+                    <!-- Habits Generated by JS -->
+                </div>
+            </div>
+        </section>
+
+        <!-- FOCUS TIMER VIEW -->
+        <section id="focus" class="view">
+            <div class="card" style="text-align: center; max-width: 600px; margin: 0 auto;">
+                <h2 id="timer-mode">Focus Session</h2>
+                <div class="timer-circle">
+                    <span class="time-text" id="timer-display">25:00</span>
+                </div>
+                
+                <div style="display: flex; justify-content: center; gap: 1rem; margin-bottom: 2rem;">
+                    <button class="btn btn-primary" id="start-btn" onclick="toggleTimer()">Start Timer</button>
+                    <button class="btn" style="background: var(--bg-light); color: white;" onclick="resetTimer()">Reset</button>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+                    <button class="btn" style="background: rgba(255,255,255,0.05); color: var(--text-dim);" onclick="setTimer(25, 'Focus')">🍅 Pomodoro</button>
+                    <button class="btn" style="background: rgba(255,255,255,0.05); color: var(--text-dim);" onclick="setTimer(5, 'Short Break')">☕ Short Break</button>
+                    <button class="btn" style="background: rgba(255,255,255,0.05); color: var(--text-dim);" onclick="setTimer(15, 'Long Break')">🧘 Long Break</button>
+                </div>
+
+                <div style="margin-top: 2rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem;">
+                    <h3>🎧 Focus Sound</h3>
+                    <button class="btn btn-primary" style="margin-top: 10px;" onclick="toggleBrownNoise()">Play/Pause White Noise</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- TASKS VIEW -->
+        <section id="tasks" class="view">
+            <div class="header">
+                <h1>Task Manager</h1>
+            </div>
+            <div class="card">
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="task-input" placeholder="Add a new task..." style="flex: 1;">
+                    <select id="task-priority" style="width: 150px;">
+                        <option value="High">🔥 High</option>
+                        <option value="Medium" selected>🔹 Medium</option>
+                        <option value="Low">🌱 Low</option>
+                    </select>
+                    <button class="btn btn-primary" onclick="addTask()">Add</button>
+                </div>
+            </div>
+            <div id="task-list-container">
+                <!-- Tasks -->
+            </div>
+        </section>
+
+        <!-- ANALYTICS VIEW (NEW) -->
+        <section id="analytics" class="view">
+            <div class="header">
+                <h1>Performance Analytics</h1>
+            </div>
+            <div class="card">
+                <h3>Weekly Productivity Trend</h3>
+                <div style="position: relative; height: 300px; width: 100%;">
+                    <canvas id="productivityChart"></canvas>
+                </div>
+                <p style="text-align: center; color: var(--text-dim); margin-top: 10px; font-size: 0.9rem;">Points calculated based on completed tasks and habits.</p>
+            </div>
+        </section>
+
+        <!-- BREATHE VIEW (NEW) -->
+        <section id="breathe" class="view">
+            <div class="header">
+                <h1>Breath & Relax</h1>
+            </div>
+            <div class="card" style="text-align: center;">
+                <p style="color: var(--text-dim); margin-bottom: 2rem;">Follow the circle. Inhale when it expands, exhale when it shrinks.</p>
+                
+                <div class="breathe-container">
+                    <div id="breathe-circle" class="breathe-circle">
+                        BREATHE
+                    </div>
+                </div>
+
+                <button class="btn btn-primary" onclick="toggleBreathing()">Start / Stop Session</button>
+            </div>
+        </section>
+
+        <!-- JOURNAL VIEW (NEW) -->
+        <section id="journal" class="view">
+            <div class="header">
+                <h1>Daily Journal</h1>
+            </div>
+            <div class="card">
+                <div style="margin-bottom: 10px; color: var(--text-dim);">Reflect on your day, gratitude, or ideas.</div>
+                <textarea id="daily-journal" style="height: 300px; resize: vertical;" placeholder="Dear Journal..."></textarea>
+                <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
+                    <button class="btn btn-primary" onclick="saveJournal()">Save Entry</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- SETTINGS VIEW -->
+        <section id="settings" class="view">
+            <div class="header">
+                <h1>Data & Settings</h1>
+            </div>
+            <div class="card">
+                <h3>Data Management</h3>
+                <p style="color: var(--text-dim); margin-bottom: 1rem;">Your data is saved locally in your browser.</p>
+                <div style="display: flex; gap: 1rem;">
+                    <button class="btn btn-primary" onclick="exportData()">💾 Export JSON</button>
+                    <button class="btn btn-danger" onclick="resetData()">🗑️ Reset All Data</button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // =======================
+        // 1. STATE MANAGEMENT
+        // =======================
+        const defaultState = {
+            tasks: [],
+            habits: [],
+            water: 0,
+            score: 0,
+            scratchpad: "",
+            journal: "",
+            history: [10, 25, 15, 30, 45, 20, 0], // Dummy data for chart init
+            lastLogin: new Date().toDateString()
+        };
+
+        let state = JSON.parse(localStorage.getItem('chronoData')) || defaultState;
+
+        // Ensure new fields exist in old state objects
+        if(!state.journal) state.journal = "";
+        if(!state.history) state.history = [0,0,0,0,0,0,0];
+
+        // Check for new day to reset daily counters
+        if (state.lastLogin !== new Date().toDateString()) {
+            state.water = 0;
+            // Push yesterday's score to history and shift
+            state.history.push(state.score);
+            state.history.shift();
+            state.score = 0; 
+            state.lastLogin = new Date().toDateString();
+            saveState();
+        }
+
+        function saveState() {
+            localStorage.setItem('chronoData', JSON.stringify(state));
+            renderAll();
+        }
+
+        function notify(msg) {
+            const el = document.getElementById('notification');
+            el.textContent = msg;
+            el.style.transform = "translateY(0)";
+            setTimeout(() => el.style.transform = "translateY(150%)", 3000);
+        }
+
+        function nav(viewId) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.getElementById(viewId).classList.add('active');
+            
+            // Map nav items by index
+            const navItems = document.querySelectorAll('.nav-item');
+            const map = {
+                'dashboard': 0, 'habits': 1, 'focus': 2, 'tasks': 3, 
+                'analytics': 4, 'breathe': 5, 'journal': 6, 'settings': 7
+            };
+            if(map[viewId] !== undefined) navItems[map[viewId]].classList.add('active');
+
+            if(viewId === 'analytics') renderChart();
+        }
+
+        // =======================
+        // 2. HABIT TRACKER LOGIC
+        // =======================
+        function addHabit() {
+            const input = document.getElementById('new-habit-input');
+            const name = input.value.trim();
+            if (!name) return;
+
+            state.habits.push({
+                id: Date.now(),
+                name: name,
+                // Array representing Mon-Sun (0-6)
+                history: [false, false, false, false, false, false, false] 
+            });
+            input.value = '';
+            notify('Habit Added!');
+            saveState();
+        }
+
+        function toggleHabitDay(habitId, dayIndex) {
+            const habit = state.habits.find(h => h.id === habitId);
+            if (habit) {
+                habit.history[dayIndex] = !habit.history[dayIndex];
+                
+                // Update Score
+                if(habit.history[dayIndex]) state.score += 5;
+                else state.score -= 5;
+                
+                saveState();
+            }
+        }
+
+        function deleteHabit(habitId) {
+            if(confirm("Delete this habit?")) {
+                state.habits = state.habits.filter(h => h.id !== habitId);
+                saveState();
+            }
+        }
+
+        function calculateStreak(history) {
+            let streak = 0;
+            return history.filter(Boolean).length;
+        }
+
+        function renderHabits() {
+            const container = document.getElementById('habit-list');
+            container.innerHTML = '';
+            const days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+            state.habits.forEach(habit => {
+                const streak = calculateStreak(habit.history);
+                const div = document.createElement('div');
+                div.className = 'habit-row';
+                
+                let daysHtml = '';
+                habit.history.forEach((isActive, idx) => {
+                    daysHtml += `<div class="day-circle ${isActive ? 'active' : ''}" 
+                                 onclick="toggleHabitDay(${habit.id}, ${idx})">${days[idx]}</div>`;
+                });
+
+                div.innerHTML = `
+                    <div style="font-weight:600;">${habit.name}</div>
+                    <div class="habit-days">${daysHtml}</div>
+                    <div class="habit-streak">🔥 ${streak}</div>
+                    <button class="btn-icon" style="color:var(--danger); cursor:pointer;" onclick="deleteHabit(${habit.id})">✕</button>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        // =======================
+        // 3. TASK MANAGER LOGIC
+        // =======================
+        function addTask() {
+            const input = document.getElementById('task-input');
+            const priority = document.getElementById('task-priority').value;
+            if(!input.value.trim()) return;
+
+            state.tasks.push({
+                id: Date.now(),
+                title: input.value,
+                priority: priority,
+                done: false
+            });
+            input.value = '';
+            notify('Task Added');
+            saveState();
+        }
+
+        function toggleTask(id) {
+            const task = state.tasks.find(t => t.id === id);
+            task.done = !task.done;
+            if(task.done) state.score += 10;
+            else state.score -= 10;
+            saveState();
+        }
+
+        function deleteTask(id) {
+            state.tasks = state.tasks.filter(t => t.id !== id);
+            saveState();
+        }
+
+        function renderTasks() {
+            const container = document.getElementById('task-list-container');
+            container.innerHTML = '';
+            
+            const sortedTasks = [...state.tasks].sort((a,b) => (a.done === b.done) ? 0 : a.done ? 1 : -1);
+
+            sortedTasks.forEach(task => {
+                const div = document.createElement('div');
+                div.className = 'card';
+                div.style.padding = '12px';
+                div.style.marginBottom = '10px';
+                div.style.display = 'flex';
+                div.style.alignItems = 'center';
+                div.style.gap = '15px';
+                div.style.opacity = task.done ? '0.5' : '1';
+                
+                let color = '#94a3b8';
+                if(task.priority === 'High') color = '#ef4444';
+                if(task.priority === 'Medium') color = '#38bdf8';
+                if(task.priority === 'Low') color = '#22c55e';
+
+                div.innerHTML = `
+                    <input type="checkbox" ${task.done ? 'checked' : ''} onchange="toggleTask(${task.id})" style="width:20px; height:20px;">
+                    <div style="flex:1;">
+                        <span style="display:block; font-weight:500; text-decoration: ${task.done ? 'line-through' : 'none'}">${task.title}</span>
+                    </div>
+                    <span style="font-size:0.8rem; padding: 4px 8px; border-radius:4px; background:${color}20; color:${color};">${task.priority}</span>
+                    <button class="btn-icon" onclick="deleteTask(${task.id})" style="color:var(--text-dim);">🗑️</button>
+                `;
+                container.appendChild(div);
+            });
+
+            const dashContainer = document.getElementById('dashboard-tasks');
+            const pendingTasks = state.tasks.filter(t => !t.done).slice(0, 3);
+            if(pendingTasks.length === 0) {
+                dashContainer.innerHTML = '<p style="color:var(--text-dim);">No pending tasks. You are free!</p>';
+            } else {
+                dashContainer.innerHTML = pendingTasks.map(t => `<div style="padding:5px 0; border-bottom:1px solid rgba(255,255,255,0.05);">• ${t.title}</div>`).join('');
+            }
+        }
+
+        // =======================
+        // 4. WATER & UTILS
+        // =======================
+        function toggleWater(index) {
+            if (index < state.water) {
+                state.water = index; 
+            } else {
+                state.water = index + 1; 
+            }
+            if (state.water > 8) state.water = 8;
+            saveState();
+        }
+
+        function renderWater() {
+            const container = document.getElementById('water-tracker');
+            container.innerHTML = '';
+            for(let i=0; i<8; i++) {
+                const span = document.createElement('span');
+                span.className = `water-glass ${i < state.water ? 'filled' : ''}`;
+                span.innerHTML = '💧';
+                span.onclick = () => toggleWater(i);
+                container.appendChild(span);
+            }
+        }
+
+        // =======================
+        // 5. TIMER & AUDIO
+        // =======================
+        let timer = { mins: 25, secs: 0, running: false, interval: null, total: 25 };
+        let noiseSynth = null;
+
+        function setTimer(m, mode) {
+            timer.mins = m;
+            timer.secs = 0;
+            timer.total = m;
+            timer.running = false;
+            clearInterval(timer.interval);
+            document.getElementById('timer-mode').textContent = mode;
+            document.getElementById('start-btn').textContent = "Start Timer";
+            updateTimerUI();
+        }
+
+        function toggleTimer() {
+            if(timer.running) {
+                clearInterval(timer.interval);
+                timer.running = false;
+                document.getElementById('start-btn').textContent = "Resume";
+            } else {
+                timer.running = true;
+                document.getElementById('start-btn').textContent = "Pause";
+                timer.interval = setInterval(() => {
+                    if(timer.secs === 0) {
+                        if(timer.mins === 0) {
+                            clearInterval(timer.interval);
+                            timer.running = false;
+                            notify('Time is up!');
+                            const synth = new Tone.Synth().toDestination();
+                            synth.triggerAttackRelease("C5", "8n");
+                        } else {
+                            timer.mins--;
+                            timer.secs = 59;
+                        }
+                    } else {
+                        timer.secs--;
+                    }
+                    updateTimerUI();
+                }, 1000);
+            }
+        }
+
+        function resetTimer() {
+            clearInterval(timer.interval);
+            setTimer(timer.total, document.getElementById('timer-mode').textContent);
+        }
+
+        function updateTimerUI() {
+            const m = String(timer.mins).padStart(2, '0');
+            const s = String(timer.secs).padStart(2, '0');
+            document.getElementById('timer-display').textContent = `${m}:${s}`;
+            document.title = `${m}:${s} - ChronoFlow`;
+        }
+
+        function toggleBrownNoise() {
+            if(!noiseSynth) {
+                Tone.start();
+                noiseSynth = new Tone.Noise("brown").toDestination();
+                noiseSynth.volume.value = -20;
+            }
+            if(noiseSynth.state === "started") noiseSynth.stop();
+            else noiseSynth.start();
+        }
+
+        // =======================
+        // 6. NEW FEATURES LOGIC
+        // =======================
+
+        // --- Chart.js ---
+        let productivityChart = null;
+
+        function renderChart() {
+            const ctx = document.getElementById('productivityChart').getContext('2d');
+            
+            // Prepare data: last 6 days from history + today
+            const displayData = [...state.history.slice(-6), state.score];
+
+            if (productivityChart) {
+                productivityChart.data.datasets[0].data = displayData;
+                productivityChart.update();
+            } else {
+                productivityChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Yesterday', 'Today'],
+                        datasets: [{
+                            label: 'Productivity Score',
+                            data: displayData,
+                            borderColor: '#0ea5e9',
+                            backgroundColor: 'rgba(14, 165, 233, 0.2)',
+                            tension: 0.4,
+                            fill: true,
+                            pointBackgroundColor: '#fff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: { color: 'rgba(255,255,255,0.05)' },
+                                ticks: { color: '#94a3b8' }
+                            },
+                            x: {
+                                grid: { display: false },
+                                ticks: { color: '#94a3b8' }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // --- Breathing ---
+        let breathingActive = false;
+        function toggleBreathing() {
+            const circle = document.getElementById('breathe-circle');
+            breathingActive = !breathingActive;
+            
+            if(breathingActive) {
+                circle.classList.add('breathe-active');
+                circle.innerText = "";
+            } else {
+                circle.classList.remove('breathe-active');
+                circle.innerText = "BREATHE";
+            }
+        }
+
+        // --- Journal ---
+        function saveJournal() {
+            const text = document.getElementById('daily-journal').value;
+            state.journal = text;
+            saveState();
+            notify("Journal Saved");
+        }
+
+        // =======================
+        // 7. GENERAL RENDERING
+        // =======================
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('clock').textContent = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            document.getElementById('current-date').textContent = now.toLocaleDateString(undefined, {weekday:'long', month:'long', day:'numeric'});
+            
+            const hr = now.getHours();
+            const msg = hr < 12 ? "Good Morning" : hr < 18 ? "Good Afternoon" : "Good Evening";
+            document.getElementById('greeting').textContent = msg;
+        }
+
+        // Data Management
+        function resetData() {
+            if(confirm("Are you sure? All tasks and habits will be deleted.")) {
+                localStorage.removeItem('chronoData');
+                state = defaultState;
+                location.reload();
+            }
+        }
+
+        function exportData() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", "chronoflow_backup.json");
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        }
+
+        // Scratchpad Auto-save
+        document.getElementById('scratchpad').addEventListener('input', (e) => {
+            state.scratchpad = e.target.value;
+            localStorage.setItem('chronoData', JSON.stringify(state));
+        });
+
+        function renderAll() {
+            renderHabits();
+            renderTasks();
+            renderWater();
+            document.getElementById('score-display').textContent = state.score;
+            document.getElementById('scratchpad').value = state.scratchpad;
+            document.getElementById('daily-journal').value = state.journal;
+        }
+
+        // Init
+        window.onload = () => {
+            setInterval(updateClock, 1000);
+            updateClock();
+            renderAll();
+        };
+
+    </script>
+
+</body>
+</html>
